@@ -702,6 +702,10 @@ namespace Microsoft.PlayerFramework
         {
             if (PlayerState == PlayerState.Started || await OnMediaStartingAsync())
             {
+                if (_Position != VirtualPosition)
+                    _Position = VirtualPosition;
+
+                IsThumbnailVisible = false;
                 _Play();
             }
         }
@@ -899,6 +903,14 @@ namespace Microsoft.PlayerFramework
         internal void Seek(TimeSpan position, out bool cancel)
         {
             var previousPosition = (position == VirtualPosition ? Position : VirtualPosition);
+            if (this.CurrentState != MediaElementState.Paused)
+            {
+                Pause();
+            }
+            IsThumbnailVisible = true;
+            VirtualPosition = position;
+            cancel = false;
+            return;
             var args = new SeekRoutedEventArgs(previousPosition, position);
             OnSeeked(args);
             cancel = args.Canceled;
@@ -5322,7 +5334,10 @@ namespace Microsoft.PlayerFramework
             currentSeek = new TaskCompletionSource<RoutedEventArgs>();
             try
             {
-                _Position = position;
+                if (this.CurrentState == MediaElementState.Paused)
+                    VirtualPosition = position;
+                else
+                    _Position = position;
                 await currentSeek.Task;
                 OnUpdate();
             }
@@ -5360,12 +5375,12 @@ namespace Microsoft.PlayerFramework
 
             if (newPosition != previousVirtualPosition)
             {
-                if (!IsScrubbing)
+                if (!IsScrubbing && CurrentState != MediaElementState.Paused)
                 {
                     SetValueWithoutCallback(VirtualPositionProperty, newPosition);
                 }
                 UpdateIsPositionLive();
-                if (!IsScrubbing)
+                if (!IsScrubbing && CurrentState != MediaElementState.Paused)
                 {
                     OnVirtualPositionChanged(new RoutedPropertyChangedEventArgs<TimeSpan>(previousVirtualPosition, newPosition));
                 }
